@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist/",
+    "noImplicitAny": true,
+    "preserveConstEnums": true,
+    "sourceMap": true,
+    "module": "es6",
+    "target": "es5",
+    "jsx": "react",
+    "allowJs": true,
+    "moduleResolution": "Node",
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": "." // This must be specified if "paths" is.
+  },
+  "exclude": ["lib/**/*"],
+  "paths": {
+    "*": [
+      "node_modules/*",
+      "ui/node_modules/*",
+      "types/*"
+    ]
+  }
+}

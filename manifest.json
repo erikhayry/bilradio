@@ -1,0 +1,31 @@
+{
+	"manifest_version": 2,
+	"name": "Bilradio",
+	"version": "0.0.1",
+	"description": "",
+	"icons": {
+		"48": "icons/logo.png",
+		"96": "icons/logo@2x.png"
+	},
+	"background": {
+		"scripts": [
+			"dist/background.js"
+		]
+	},
+	"content_scripts": [
+		{
+			"matches": ["*://*/*"],
+			"js": [
+				"dist/client.js"
+			]
+		}
+	],
+	"browser_action": {
+		"default_icon": "icons/logo.png",
+		"default_title": "Bilradio"
+	},
+	"permissions": [
+		"tabs",
+		"notifications"
+	]
+}
