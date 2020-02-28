@@ -2,7 +2,7 @@
 	"manifest_version": 2,
 	"name": "Bilradio",
 	"version": "0.0.1",
-	"description": "",
+	"description": "Bilradio 2000",
 	"icons": {
 		"48": "icons/logo.png",
 		"96": "icons/logo@2x.png"
@@ -20,10 +20,7 @@
 			]
 		}
 	],
-	"browser_action": {
-		"default_icon": "icons/logo.png",
-		"default_title": "Bilradio"
-	},
+	"browser_action": {},
 	"permissions": [
 		"tabs",
 		"notifications"

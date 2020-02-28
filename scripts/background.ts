@@ -1,35 +1,54 @@
 import {browser, Tabs} from "webextension-polyfill-ts";
 import Tab = Tabs.Tab;
 
-function sendMessageToTab(tab:Tab, message: string): Promise<any> {
+export enum Action {
+    RESUME = 'resume',
+    PAUSE = 'pause'
+}
+let isPlaying = false;
+
+async function sendMessageToTab(tab:Tab, action: Action): Promise<any> {
     return browser.tabs.sendMessage(
         tab.id,
-        {message}
+        {action}
     )
 }
-async function sendMessageToContent(): Promise<any>{
+async function sendMessageToContent(action: Action): Promise<any>{
+    console.log("Action", action)
     try {
         const tabs = await browser.tabs.query({});
-        console.log("tabs", tabs)
-
         const messages = tabs.map((tab) => {
-            return sendMessageToTab(tab, 'hej från bilradio');
+            console.log("tab", tab.mutedInfo)
+            switch (action) {
+                case 'pause':
+                    browser.tabs.update(tab.id, {"muted": true});
+                    break;
+                case 'resume':
+                    browser.tabs.update(tab.id, {"muted": false});
+                    break;
+                default:
+                    console.log("Unknown action: ", action);
+            }
+            return sendMessageToTab(tab, action);
         });
 
         return Promise.all(messages)
     } catch(error){
-        console.log("error", error)
+        console.error(error);
         return Promise.reject(error)
     }
 }
 
+console.log("browser", browser)
 browser.browserAction.onClicked.addListener(async () => {
-    console.log("click", )
-    await sendMessageToContent()
+    const action: Action = isPlaying ? Action.PAUSE : Action.RESUME;
+    isPlaying  = !isPlaying;
+
+    sendMessageToContent(action)
         .then(res => {
             console.log("response", res)
         })
-        .catch((e) => {
-            console.log("e", e)
+        .catch(({message}) => {
+            console.error(message)
         })
 });
