@@ -4,8 +4,8 @@
 	"version": "0.0.1",
 	"description": "Bilradio 2000",
 	"icons": {
-		"48": "icons/logo.png",
-		"96": "icons/logo@2x.png"
+		"48": "icons/logo-on.png",
+		"96": "icons/logo-on@2x.png"
 	},
 	"background": {
 		"scripts": [
@@ -13,7 +13,7 @@
 		]
 	},
 	"options_ui": {
-		"page": "options.html",
+		"page": "player.html",
 		"open_in_tab": true
 	},
 	"browser_action": {},

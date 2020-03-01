@@ -85,39 +85,54 @@ interface NewsEpisode {
     relatedepisodes: number[]
 }
 
+console.log('Background')
+
 const EKOT_ID = 4540;
 const P1_ID = 132;
 const P1_STREAM_URL = 'http://sverigesradio.se/topsy/direkt/srapi/132.mp3';
 
-let nextEpisode: Episode;
+let isOn = true;
+let nextEpisodes: Episode[] = [];
+let fetchTimeout:  NodeJS.Timeout;
+let notification: string;
 
-function setToHappen(fn: any, date:Date){
-    const t = date.getTime() - (new Date()).getTime();
-    return setTimeout(fn, t);
+function isInFuture(date:Date){
+    return date.getTime() - (new Date()).getTime() >= 0;
 }
 
-async function getNextEpisode(): Promise<Episode | undefined>{
-    return  fetch('http://api.sr.se/api/v2/scheduledepisodes?channelid=132&format=json')
+function setToHappen(fn: any, date:Date){
+    const timeUntil = date.getTime() - (new Date()).getTime();
+    console.log('setToHappen', timeUntil, date);
+    return setTimeout(fn, timeUntil);
+}
+
+async function getNextEpisodes(): Promise<Episode[]>{
+    return  fetch('http://api.sr.se/api/v2/scheduledepisodes?channelid=132&format=json&pagination=false')
         .then((response) => {
             return response.json();
         })
         .then(({schedule}: Scheduled_Episodes) => {
-            return schedule.find(({program}: Episode) => program.id === EKOT_ID);
+            return schedule
+                .filter(({program}: Episode) => program.id === EKOT_ID)
+                .filter(({starttimeutc}: Episode) => isInFuture(parseDate(starttimeutc)))
         });
 }
 
 const buttons = [
     {
         "title": "Lyssna",
-        "iconUrl": browser.runtime.getURL("icons/logo.png"),
+        "iconUrl": browser.runtime.getURL("icons/logo-on.png"),
     }
 ];
 
 async function notify(nextEpisode:Episode){
-    browser.notifications.create({
+    if(notification){
+        browser.notifications.clear(notification);
+    }
+    browser.notifications.create(notification, {
         type: "basic",
         title: 'Nyheter',
-        iconUrl: browser.runtime.getURL("icons/logo.png"),
+        iconUrl: browser.runtime.getURL("icons/logo-on.png"),
         message: `Ny sändning från ${nextEpisode.title}`,
         //@ts-ignore
         buttons: buttons,
@@ -126,34 +141,54 @@ async function notify(nextEpisode:Episode){
 }
 
 browser.notifications.onButtonClicked.addListener(async (id, index) => {
-    if(nextEpisode){
-        const end = parseDate(nextEpisode.endtimeutc);
-
-        browser.tabs.create({
-            url: `options.html?title=${nextEpisode.title}&src=${P1_STREAM_URL}&endDate=${end}`
-        });
-    }
+    const nextEpisode = nextEpisodes[0];
+    const end = parseDate(nextEpisode.endtimeutc);
+    browser.tabs.create({
+        url: `player.html?title=${nextEpisode.title}&src=${P1_STREAM_URL}&endDate=${end.getTime()}`
+    });
+    nextEpisodes.splice(0, 1);
+    fetchData();
 });
 
 browser.browserAction.onClicked.addListener(async () => {
-    nextEpisode = await getNextEpisode();
-    console.log('next', nextEpisode)
-    if(nextEpisode){
-        notify(nextEpisode);
+    isOn = !isOn;
+    browser.browserAction.setIcon({
+        path:  browser.runtime.getURL(`icons/logo-${isOn ? 'on' : 'off'}.png`)
+    });
+    if(isOn){
+        fetchData();
     }
 });
 
-function parseDate(dateString: string): number{
-    return  Number.parseInt(dateString
+function parseDate(dateString: string): Date{
+    return  new Date(Number.parseInt(dateString
         .replace('/Date(', '')
         .replace(')/', '')
-    )
+    ))
 }
 
-async function init(){
-    nextEpisode = await getNextEpisode();
-    const starts = parseDate(nextEpisode.starttimeutc);
-    setToHappen(notify, new Date(starts));
+function startEpisode(){
+    const nextEpisode = nextEpisodes[0];
+    notify(nextEpisode);
 }
 
-init();
+async function fetchData(){
+    console.log('fetchData 1.', nextEpisodes);
+    if(nextEpisodes.length === 0){
+        nextEpisodes = await getNextEpisodes();
+    }
+    console.log('fetchData 2.', nextEpisodes);
+
+    if(nextEpisodes && nextEpisodes.length > 0){
+        const starts = parseDate(nextEpisodes[0].starttimeutc);
+        setToHappen(startEpisode, starts);
+    } else {
+        clearTimeout(fetchTimeout);
+        fetchTimeout = setTimeout(fetchData, 1000 * 60 * 5)
+    }
+
+}
+
+if(isOn){
+    fetchData();
+}

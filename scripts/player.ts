@@ -1,6 +1,7 @@
-function setToHappen(fn: any, date:any){
-    const t = date.getTime() - (new Date()).getTime();
-    return setTimeout(fn, t);
+function setToHappen(fn: any, date:Date){
+    const timeUntil = date.getTime() - (new Date()).getTime();
+    console.log('setToHappen', timeUntil, date);
+    return setTimeout(fn, timeUntil);
 }
 
 function getSearch(){
@@ -28,7 +29,7 @@ function getSearch(){
     titleEl.innerText = title;
 
     if(endDate){
-        setToHappen(window.close, endDate)
+        setToHappen(window.close, new Date(Number.parseInt(endDate)))
     } else {
         audioEl.addEventListener('ended', () => {
             window.close()
