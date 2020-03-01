@@ -3,7 +3,7 @@ const path = require('path');
 module.exports = {
     entry: {
         background: './scripts/background.ts',
-        client: './scripts/client.ts'
+        player: './scripts/player.ts'
     },
     mode: "production",
     devtool: 'inline-source-map',

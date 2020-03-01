@@ -1,83 +1,159 @@
-import {browser, Tabs} from "webextension-polyfill-ts";
-import Tab = Tabs.Tab;
+import {browser} from "webextension-polyfill-ts";
 
-const EkotId = 4540;
-const P1Id = 132;
-
-fetch('http://api.sr.se/api/v2/scheduledepisodes?channelid=132&format=json')
-    .then((response) => {
-        return response.json();
-    })
-    .then(({schedule}) => {
-        const nextEpisode = schedule.find(({program}: any) => program.id === EkotId)
-        console.log('nextEpisode', nextEpisode);
-    });
-
-export enum Action {
-    RESUME = 'resume',
-    PAUSE = 'pause'
+interface Scheduled_Episodes {
+    copyright: string;
+    schedule: Episode[]
+    pagination: {
+        page: number;
+        size: number;
+        totalhits: number;
+        totalpages: number;
+        nextpage: string
+    }
 }
-let isPlaying = false;
+
+interface Episode {
+    episodeid: number;
+    title: string;
+    description: string;
+    starttimeutc: string;
+    endtimeutc: string;
+    program: {
+        id: number;
+        name: string;
+    };
+    channel: {
+        id: number;
+        name: string;
+    };
+    imageurl: string;
+    imageurltemplate: string;
+}
+
+interface News {
+    episodes: Episode[]
+}
+
+interface NewsEpisode {
+    id: number,
+    title: string;
+    description: string;
+    url: string;
+    program: {
+        id: number,
+        name: string;
+    },
+    audiopreference: string;
+    audiopriority: string;
+    audiopresentation: string;
+    publishdateutc: string;
+    imageurl: string;
+    imageurltemplate: string;
+    broadcast: {
+        availablestoputc: string;
+        playlist: {
+            duration: number,
+            publishdateutc: string;
+            id: number,
+            url: string;
+            statkey: string;
+        },
+        broadcastfiles: [
+            {
+                duration: number,
+                publishdateutc: string;
+                id: number,
+                url: string;
+                statkey: string;
+            }
+        ]
+    },
+    downloadpodfile: {
+        title: string;
+        description: string;
+        filesizeinbytes: number,
+        program: {
+            id: number,
+            name: string;
+        },
+        duration: number,
+        publishdateutc: string;
+        id: number,
+        url: string;
+        statkey: string;
+    },
+    relatedepisodes: number[]
+}
+
+const EKOT_ID = 4540;
+const P1_ID = 132;
+const P1_STREAM_URL = 'http://sverigesradio.se/topsy/direkt/srapi/132.mp3';
+
+let nextEpisode: Episode;
+
+function setToHappen(fn: any, date:Date){
+    const t = date.getTime() - (new Date()).getTime();
+    return setTimeout(fn, t);
+}
+
+async function getNextEpisode(): Promise<Episode | undefined>{
+    return  fetch('http://api.sr.se/api/v2/scheduledepisodes?channelid=132&format=json')
+        .then((response) => {
+            return response.json();
+        })
+        .then(({schedule}: Scheduled_Episodes) => {
+            return schedule.find(({program}: Episode) => program.id === EKOT_ID);
+        });
+}
+
 const buttons = [
     {
         "title": "Lyssna",
         "iconUrl": browser.runtime.getURL("icons/logo.png"),
     }
 ];
-async function sendMessageToTab(tab:Tab, action: Action): Promise<any> {
-    return browser.tabs.sendMessage(
-        tab.id,
-        {action}
-    )
-}
 
-async function notify(action: Action){
+async function notify(nextEpisode:Episode){
     browser.notifications.create({
         type: "basic",
-        title: 'Profil',
+        title: 'Nyheter',
         iconUrl: browser.runtime.getURL("icons/logo.png"),
-        message: `Action: ${action}`,
+        message: `Ny sändning från ${nextEpisode.title}`,
         //@ts-ignore
         buttons: buttons,
         requireInteraction: true
     });
 }
 
-async function sendMessageToContent(action: Action): Promise<any>{
-    console.log("Action", action)
-    const tabs = await browser.tabs.query({});
-    const messages = tabs.map((tab) => {
-        console.log("tab", tab.mutedInfo)
-
-        switch (action) {
-            case 'pause':
-                browser.tabs.update(tab.id, {"muted": true});
-                break;
-            case 'resume':
-                browser.tabs.update(tab.id, {"muted": false});
-                break;
-            default:
-                console.log("Unknown action: ", action);
-        }
-        return sendMessageToTab(tab, action);
-    });
-
-    return Promise.all(messages)
-}
-
 browser.notifications.onButtonClicked.addListener(async (id, index) => {
-    try {
-        await sendMessageToContent(Action.PAUSE);
-    } catch(error){
-        console.error(error);
+    if(nextEpisode){
+        const end = parseDate(nextEpisode.endtimeutc);
+
+        browser.tabs.create({
+            url: `options.html?title=${nextEpisode.title}&src=${P1_STREAM_URL}&endDate=${end}`
+        });
     }
-    browser.tabs.create({ url: "options.html" });
 });
 
 browser.browserAction.onClicked.addListener(async () => {
-    const action: Action = isPlaying ? Action.PAUSE : Action.RESUME;
-    isPlaying  = true;
-    setTimeout(() => {
-        notify(action);
-    }, 0)
+    nextEpisode = await getNextEpisode();
+    console.log('next', nextEpisode)
+    if(nextEpisode){
+        notify(nextEpisode);
+    }
 });
+
+function parseDate(dateString: string): number{
+    return  Number.parseInt(dateString
+        .replace('/Date(', '')
+        .replace(')/', '')
+    )
+}
+
+async function init(){
+    nextEpisode = await getNextEpisode();
+    const starts = parseDate(nextEpisode.starttimeutc);
+    setToHappen(notify, new Date(starts));
+}
+
+init();
