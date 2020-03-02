@@ -5,11 +5,32 @@
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Document</title>
+    <title>Radio</title>
+    <style type="text/css">
+        body{
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            justify-content: center;
+            align-items: center;
+        }
+        audio{
+            margin: 20px 0;
+        }
+    </style>
 </head>
 <body>
+    <img src="/icons/microphone.svg" alt="Mikrofon" width="200" height="200">
     <h1 id="title"></h1>
     <audio id="player" src="" controls autoplay></audio>
+    <p>
+        <a href="" target="_blank" id="link">Länk till programmet</a>
+    </p>
+    <p>
+        Ikon gjord av <a href="https://www.flaticon.com/authors/prosymbols" title="Prosymbols">Prosymbols</a>
+    </p>
     <script src="dist/player.js"></script>
 </body>
 </html>

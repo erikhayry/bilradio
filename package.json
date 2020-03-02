@@ -38,6 +38,8 @@
     "lint-fix": "$(npm bin)/eslint --fix . --ext .js,.ts,.tsx"
   },
   "dependencies": {
+    "domify": "^1.4.0",
+    "jsdom": "^16.2.0",
     "jsonpack": "^1.1.5",
     "webextension-polyfill": "^0.4.0"
   },

@@ -1,4 +1,5 @@
 import {browser} from "webextension-polyfill-ts";
+import {imageUrlToBase64, isInFuture, parseDate, setToHappen} from './utils';
 
 interface Scheduled_Episodes {
     copyright: string;
@@ -26,146 +27,90 @@ interface Episode {
         id: number;
         name: string;
     };
-    imageurl: string;
-    imageurltemplate: string;
+    imageurl?: string;
+    imageurltemplate?: string;
 }
 
-interface News {
-    episodes: Episode[]
+enum CHANNEL {
+    P1 = 132
+}
+enum SHOW {
+    EKOT = 4540
 }
 
-interface NewsEpisode {
-    id: number,
-    title: string;
-    description: string;
-    url: string;
-    program: {
-        id: number,
-        name: string;
-    },
-    audiopreference: string;
-    audiopriority: string;
-    audiopresentation: string;
-    publishdateutc: string;
-    imageurl: string;
-    imageurltemplate: string;
-    broadcast: {
-        availablestoputc: string;
-        playlist: {
-            duration: number,
-            publishdateutc: string;
-            id: number,
-            url: string;
-            statkey: string;
-        },
-        broadcastfiles: [
-            {
-                duration: number,
-                publishdateutc: string;
-                id: number,
-                url: string;
-                statkey: string;
-            }
-        ]
-    },
-    downloadpodfile: {
-        title: string;
-        description: string;
-        filesizeinbytes: number,
-        program: {
-            id: number,
-            name: string;
-        },
-        duration: number,
-        publishdateutc: string;
-        id: number,
-        url: string;
-        statkey: string;
-    },
-    relatedepisodes: number[]
-}
-
-console.log('Background')
-
-const EKOT_ID = 4540;
-const P1_ID = 132;
-const P1_STREAM_URL = 'http://sverigesradio.se/topsy/direkt/srapi/132.mp3';
+const STREAM_URL = `http://sverigesradio.se/topsy/direkt/srapi/${CHANNEL.P1}.mp3`;
+const MINUTE = 1000 * 60;
 
 let isOn = true;
 let nextEpisodes: Episode[] = [];
 let fetchTimeout:  NodeJS.Timeout;
 let notification: string;
 
-function isInFuture(date:Date){
-    return date.getTime() - (new Date()).getTime() >= 0;
-}
+console.log('bg')
 
-function setToHappen(fn: any, date:Date){
-    const timeUntil = date.getTime() - (new Date()).getTime();
-    console.log('setToHappen', timeUntil, date);
-    return setTimeout(fn, timeUntil);
+function filterPrevEpisodes({starttimeutc}:Episode): boolean{
+    return isInFuture(parseDate(starttimeutc));
 }
 
 async function getNextEpisodes(): Promise<Episode[]>{
-    return  fetch('http://api.sr.se/api/v2/scheduledepisodes?channelid=132&format=json&pagination=false')
+    return fetch('http://api.sr.se/api/v2/scheduledepisodes?channelid=132&format=json&pagination=false')
         .then((response) => {
             return response.json();
         })
         .then(({schedule}: Scheduled_Episodes) => {
             return schedule
-                .filter(({program}: Episode) => program.id === EKOT_ID)
-                .filter(({starttimeutc}: Episode) => isInFuture(parseDate(starttimeutc)))
+                .filter(({program}: Episode) => program.id === SHOW.EKOT)
+                .filter(filterPrevEpisodes)
         });
 }
 
-const buttons = [
-    {
-        "title": "Lyssna",
-        "iconUrl": browser.runtime.getURL("icons/logo-on.png"),
-    }
-];
-
-async function notify(nextEpisode:Episode){
+async function notify({title, imageurl}:Episode){
     if(notification){
         browser.notifications.clear(notification);
     }
-    browser.notifications.create(notification, {
+    const iconUrl = imageurl ? await imageUrlToBase64(imageurl) : browser.runtime.getURL("icons/on.png");
+
+    browser.notifications.create({
         type: "basic",
-        title: 'Nyheter',
-        iconUrl: browser.runtime.getURL("icons/logo-on.png"),
-        message: `Ny sändning från ${nextEpisode.title}`,
-        //@ts-ignore
-        buttons: buttons,
-        requireInteraction: true
+        title: 'Nyhetssändning',
+        iconUrl,
+        message: 'Tryck för att börja lyssna',
+        contextMessage: `${title}`
     });
+
+    setTimeout(() => {
+        if(notification){
+            browser.notifications.clear(notification);
+        }
+    }, MINUTE)
 }
 
-browser.notifications.onButtonClicked.addListener(async (id, index) => {
+browser.notifications.onClosed.addListener((notificationId, byUser) => {
+    console.log('onClosed', notificationId, byUser)
+    nextEpisodes.splice(0, 1);
+    fetchData();
+});
+
+browser.notifications.onClicked.addListener((notificationId) => {
+    console.log('onClicked', notificationId);
     const nextEpisode = nextEpisodes[0];
     const end = parseDate(nextEpisode.endtimeutc);
     browser.tabs.create({
-        url: `player.html?title=${nextEpisode.title}&src=${P1_STREAM_URL}&endDate=${end.getTime()}`
+        url: `player.html?title=${nextEpisode.title}&src=${STREAM_URL}&endDate=${end.getTime() + MINUTE}`,
+        pinned: true
     });
-    nextEpisodes.splice(0, 1);
     fetchData();
 });
 
 browser.browserAction.onClicked.addListener(async () => {
     isOn = !isOn;
     browser.browserAction.setIcon({
-        path:  browser.runtime.getURL(`icons/logo-${isOn ? 'on' : 'off'}.png`)
+        path:  browser.runtime.getURL(`icons/${isOn ? 'on' : 'off'}.png`)
     });
     if(isOn){
         fetchData();
     }
 });
-
-function parseDate(dateString: string): Date{
-    return  new Date(Number.parseInt(dateString
-        .replace('/Date(', '')
-        .replace(')/', '')
-    ))
-}
 
 function startEpisode(){
     const nextEpisode = nextEpisodes[0];
@@ -173,6 +118,7 @@ function startEpisode(){
 }
 
 async function fetchData(){
+    nextEpisodes = nextEpisodes.filter(filterPrevEpisodes);
     console.log('fetchData 1.', nextEpisodes);
     if(nextEpisodes.length === 0){
         nextEpisodes = await getNextEpisodes();
@@ -186,9 +132,11 @@ async function fetchData(){
         clearTimeout(fetchTimeout);
         fetchTimeout = setTimeout(fetchData, 1000 * 60 * 5)
     }
-
 }
 
+/*
+    INIT
+ */
 if(isOn){
     fetchData();
 }
