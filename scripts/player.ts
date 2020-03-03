@@ -1,22 +1,18 @@
-import {getSearch, setToHappen} from "./utils";
+import {getSearch, isInFuture, setToHappen} from "./utils";
 
 ((() => {
-    const { src, title, id, endDate } =  getSearch();
+    const { src, title, endDate } =  getSearch();
     const audioEl: HTMLAudioElement = document.getElementById('player') as HTMLAudioElement;
     const titleEl: HTMLHeadElement = document.getElementById('title');
-    //@ts-ignore
-    const linkEl: HTMLAnchorElement = document.getElementById('link');
-    console.log('init', src, title, audioEl, titleEl, linkEl);
+    const parsedEndDate = new Date(Number.parseInt(endDate));
 
-    audioEl.src = src;
-    titleEl.innerText = title;
-    linkEl.href = `https://sverigesradio.se/sida/default.aspx?programid=${id}`;
-
-    if(endDate){
-        setToHappen(window.close, new Date(Number.parseInt(endDate)))
+    if(isInFuture(parsedEndDate)){
+        audioEl.src = src;
+        titleEl.innerText = title;
+        setToHappen(window.close, parsedEndDate)
     } else {
-        audioEl.addEventListener('ended', () => {
-            window.close()
-        })
+        audioEl.style.display = 'none';
+        titleEl.innerText = title + ' är slut';
+        setTimeout(window.close, 5000)
     }
 })());

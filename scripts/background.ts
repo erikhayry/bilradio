@@ -46,8 +46,10 @@ let nextEpisodes: Episode[] = [];
 let fetchTimeout:  NodeJS.Timeout;
 let notification: string;
 
-console.log('bg')
-
+browser.tabs.create({
+    url: `player.html?title=title&src=${STREAM_URL}&endDate=${new Date().getTime() - MINUTE}`,
+    pinned: true
+});
 function filterPrevEpisodes({starttimeutc}:Episode): boolean{
     return isInFuture(parseDate(starttimeutc));
 }
@@ -57,7 +59,7 @@ async function getNextEpisodes(): Promise<Episode[]>{
         .then((response) => {
             return response.json();
         })
-        .then(({schedule}: Scheduled_Episodes) => {
+        .then(({schedule = []}: Scheduled_Episodes) => {
             return schedule
                 .filter(({program}: Episode) => program.id === SHOW.EKOT)
                 .filter(filterPrevEpisodes)
@@ -70,11 +72,11 @@ async function notify({title, imageurl}:Episode){
     }
     const iconUrl = imageurl ? await imageUrlToBase64(imageurl) : browser.runtime.getURL("icons/on.png");
 
-    browser.notifications.create({
+    browser.notifications.create(notification, {
         type: "basic",
         title: 'Nyhetssändning',
         iconUrl,
-        message: 'Tryck för att börja lyssna',
+        message: 'Tryck här för att börja lyssna',
         contextMessage: `${title}`
     });
 
@@ -86,19 +88,20 @@ async function notify({title, imageurl}:Episode){
 }
 
 browser.notifications.onClosed.addListener((notificationId, byUser) => {
-    console.log('onClosed', notificationId, byUser)
     nextEpisodes.splice(0, 1);
     fetchData();
 });
 
 browser.notifications.onClicked.addListener((notificationId) => {
-    console.log('onClicked', notificationId);
     const nextEpisode = nextEpisodes[0];
     const end = parseDate(nextEpisode.endtimeutc);
-    browser.tabs.create({
-        url: `player.html?title=${nextEpisode.title}&src=${STREAM_URL}&endDate=${end.getTime() + MINUTE}`,
-        pinned: true
-    });
+    if(isInFuture(end)){
+        browser.tabs.create({
+            url: `player.html?title=${nextEpisode.title}&src=${STREAM_URL}&endDate=${end.getTime() + MINUTE}`,
+            pinned: true
+        });
+    }
+
     fetchData();
 });
 
@@ -113,24 +116,21 @@ browser.browserAction.onClicked.addListener(async () => {
 });
 
 function startEpisode(){
-    const nextEpisode = nextEpisodes[0];
-    notify(nextEpisode);
+    notify(nextEpisodes[0]);
 }
 
 async function fetchData(){
     nextEpisodes = nextEpisodes.filter(filterPrevEpisodes);
-    console.log('fetchData 1.', nextEpisodes);
     if(nextEpisodes.length === 0){
         nextEpisodes = await getNextEpisodes();
     }
-    console.log('fetchData 2.', nextEpisodes);
 
-    if(nextEpisodes && nextEpisodes.length > 0){
+    if(nextEpisodes.length > 0){
         const starts = parseDate(nextEpisodes[0].starttimeutc);
         setToHappen(startEpisode, starts);
     } else {
         clearTimeout(fetchTimeout);
-        fetchTimeout = setTimeout(fetchData, 1000 * 60 * 5)
+        fetchTimeout = setTimeout(fetchData, MINUTE * 5);
     }
 }
 
