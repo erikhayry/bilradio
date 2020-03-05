@@ -99,10 +99,6 @@ async function notify({title, endtimeutc, imageurl}:Episode){
         }
     }, endTime);
 
-    setTimeout(() => {
-
-    }, 5 * MINUTE);
-
     setTimeout(fetchData, 1000);
 }
 
@@ -147,9 +143,10 @@ async function fetchData(){
     if(nextEpisodes.length > 0){
         const starts = parseDate(nextEpisodes[0].starttimeutc);
         setToHappen(startEpisode, starts);
+    } else {
+        startFetchInterval(25);
     }
 
-    startFetchInterval(25);
 }
 
 /*
