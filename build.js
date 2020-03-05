@@ -62,7 +62,7 @@ function copyFileSync(source, target) {
 }
 
 
-var dir = `${__dirname }/product/profiler-[${newVersion}]`;
+var dir = `${__dirname }/product/bilradio-[${newVersion}]`;
 if (!fs.existsSync(dir)){
     fs.mkdirSync(dir);
 }
@@ -71,3 +71,4 @@ filesToCopy.forEach(filePath => {
     copyFileSync(`${__dirname }/${filePath}`, `${dir}/${filePath}`);
 });
 fs.writeFileSync(manifestPath, newManifest, 'UTF-8');
+console.log(`Version ${newVersion} built`);

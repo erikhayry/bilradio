@@ -34,7 +34,7 @@ interface Episode {
 enum CHANNEL {
     P1 = 132
 }
-enum SHOW {
+enum PROGRAM {
     EKOT = 4540
 }
 
@@ -43,34 +43,46 @@ const MINUTE = 1000 * 60;
 
 let isOn = true;
 let nextEpisodes: Episode[] = [];
-let fetchTimeout:  NodeJS.Timeout;
-let notification: string;
+let fetchInterval:  NodeJS.Timeout;
+let notification = 'notification';
 
-browser.tabs.create({
-    url: `player.html?title=title&src=${STREAM_URL}&endDate=${new Date().getTime() - MINUTE}`,
-    pinned: true
-});
-function filterPrevEpisodes({starttimeutc}:Episode): boolean{
+function filterPrevEpisodes({starttimeutc}:Episode): boolean {
     return isInFuture(parseDate(starttimeutc));
 }
 
+function startFetchInterval(minutes: number){
+    endFetchInterval();
+    const time = minutes * MINUTE;
+    fetchInterval = setInterval(fetchData, time);
+    console.log(`New fetch interval ${fetchInterval} started. Refetch in ${minutes} minutes.`)
+}
+
+function endFetchInterval(){
+    if(fetchInterval){
+        console.log(`Clear fetch interval ${fetchInterval}`);
+        clearTimeout(fetchInterval);
+        fetchInterval = undefined;
+    }
+}
+
 async function getNextEpisodes(): Promise<Episode[]>{
-    return fetch('http://api.sr.se/api/v2/scheduledepisodes?channelid=132&format=json&pagination=false')
+    return fetch(`http://api.sr.se/api/v2/scheduledepisodes?channelid=${CHANNEL.P1}&format=json&pagination=false`)
         .then((response) => {
             return response.json();
         })
         .then(({schedule = []}: Scheduled_Episodes) => {
             return schedule
-                .filter(({program}: Episode) => program.id === SHOW.EKOT)
+                .filter(({program}: Episode) => program.id === PROGRAM.EKOT)
                 .filter(filterPrevEpisodes)
         });
 }
 
-async function notify({title, imageurl}:Episode){
+async function notify({title, endtimeutc, imageurl}:Episode){
     if(notification){
         browser.notifications.clear(notification);
     }
     const iconUrl = imageurl ? await imageUrlToBase64(imageurl) : browser.runtime.getURL("icons/on.png");
+    const endTime = parseDate(endtimeutc);
 
     browser.notifications.create(notification, {
         type: "basic",
@@ -80,11 +92,18 @@ async function notify({title, imageurl}:Episode){
         contextMessage: `${title}`
     });
 
-    setTimeout(() => {
+    setToHappen(() => {
         if(notification){
+            console.log(`${notification} cleared`);
             browser.notifications.clear(notification);
         }
-    }, MINUTE)
+    }, endTime);
+
+    setTimeout(() => {
+
+    }, 5 * MINUTE);
+
+    setTimeout(fetchData, 1000);
 }
 
 browser.notifications.onClosed.addListener((notificationId, byUser) => {
@@ -97,7 +116,7 @@ browser.notifications.onClicked.addListener((notificationId) => {
     const end = parseDate(nextEpisode.endtimeutc);
     if(isInFuture(end)){
         browser.tabs.create({
-            url: `player.html?title=${nextEpisode.title}&src=${STREAM_URL}&endDate=${end.getTime() + MINUTE}`,
+            url: `player.html?title=${nextEpisode.title}&src=${STREAM_URL}&endDate=${end.getTime() + (2 * MINUTE)}`,
             pinned: true
         });
     }
@@ -128,10 +147,9 @@ async function fetchData(){
     if(nextEpisodes.length > 0){
         const starts = parseDate(nextEpisodes[0].starttimeutc);
         setToHappen(startEpisode, starts);
-    } else {
-        clearTimeout(fetchTimeout);
-        fetchTimeout = setTimeout(fetchData, MINUTE * 5);
     }
+
+    startFetchInterval(25);
 }
 
 /*
