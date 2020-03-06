@@ -4,7 +4,7 @@ function isInFuture(date:Date){
 
 function setToHappen(fn: any, date:Date){
     const timeUntil = date.getTime() - (new Date()).getTime();
-    console.log('setToHappen', timeUntil, date);
+    console.log(`${new Date()} - Set to happen: `, timeUntil, date);
     return setTimeout(fn, timeUntil);
 }
 

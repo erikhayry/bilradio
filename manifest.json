@@ -19,6 +19,7 @@
 	"browser_action": {},
 	"permissions": [
 		"notifications",
+		"idle",
 		"<all_urls>"
 	]
 }

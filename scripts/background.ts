@@ -54,12 +54,12 @@ function startFetchInterval(minutes: number){
     endFetchInterval();
     const time = minutes * MINUTE;
     fetchInterval = setInterval(fetchData, time);
-    console.log(`New fetch interval ${fetchInterval} started. Refetch in ${minutes} minutes.`)
+    console.log(`${new Date()} -  New fetch interval ${fetchInterval} started. Refetch in ${minutes} minutes.`)
 }
 
 function endFetchInterval(){
     if(fetchInterval){
-        console.log(`Clear fetch interval ${fetchInterval}`);
+        console.log(`${new Date()} -  Clear fetch interval ${fetchInterval}`);
         clearTimeout(fetchInterval);
         fetchInterval = undefined;
     }
@@ -98,14 +98,8 @@ async function notify({title, endtimeutc, imageurl}:Episode){
             browser.notifications.clear(notification);
         }
     }, endTime);
-
-    setTimeout(fetchData, 1000);
-}
-
-browser.notifications.onClosed.addListener((notificationId, byUser) => {
-    nextEpisodes.splice(0, 1);
     fetchData();
-});
+}
 
 browser.notifications.onClicked.addListener((notificationId) => {
     const nextEpisode = nextEpisodes[0];
@@ -116,8 +110,6 @@ browser.notifications.onClicked.addListener((notificationId) => {
             pinned: true
         });
     }
-
-    fetchData();
 });
 
 browser.browserAction.onClicked.addListener(async () => {
@@ -130,15 +122,27 @@ browser.browserAction.onClicked.addListener(async () => {
     }
 });
 
+browser.idle.onStateChanged.addListener((state) => {
+    console.log('idle: ' + state);
+    if(state === 'active'){
+        fetchData();
+    }
+});
+
+
 function startEpisode(){
     notify(nextEpisodes[0]);
 }
 
 async function fetchData(){
+    endFetchInterval();
     nextEpisodes = nextEpisodes.filter(filterPrevEpisodes);
+
     if(nextEpisodes.length === 0){
         nextEpisodes = await getNextEpisodes();
     }
+
+    console.log(`${new Date()} - Fetch Data`, nextEpisodes, fetchInterval);
 
     if(nextEpisodes.length > 0){
         const starts = parseDate(nextEpisodes[0].starttimeutc);
@@ -146,8 +150,8 @@ async function fetchData(){
     } else {
         startFetchInterval(25);
     }
-
 }
+
 
 /*
     INIT
