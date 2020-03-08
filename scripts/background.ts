@@ -1,5 +1,5 @@
 import {browser} from "webextension-polyfill-ts";
-import {imageUrlToBase64, isInFuture, parseDate, setToHappen} from './utils';
+import {imageUrlToBase64, isInFuture, parseDate, setToHappen, log} from './utils';
 
 interface Scheduled_Episodes {
     copyright: string;
@@ -44,6 +44,7 @@ const MINUTE = 1000 * 60;
 let isOn = true;
 let nextEpisodes: Episode[] = [];
 let fetchInterval:  NodeJS.Timeout;
+let notificationTimeout:  NodeJS.Timeout;
 let notification = 'notification';
 
 function filterPrevEpisodes({starttimeutc}:Episode): boolean {
@@ -54,12 +55,12 @@ function startFetchInterval(minutes: number){
     endFetchInterval();
     const time = minutes * MINUTE;
     fetchInterval = setInterval(fetchData, time);
-    console.log(`${new Date()} -  New fetch interval ${fetchInterval} started. Refetch in ${minutes} minutes.`)
+    log(`New fetch interval ${fetchInterval} started. Refetch in ${minutes} minutes.`)
 }
 
 function endFetchInterval(){
     if(fetchInterval){
-        console.log(`${new Date()} -  Clear fetch interval ${fetchInterval}`);
+        log(`Clear fetch interval ${fetchInterval}`);
         clearTimeout(fetchInterval);
         fetchInterval = undefined;
     }
@@ -78,6 +79,7 @@ async function getNextEpisodes(): Promise<Episode[]>{
 }
 
 async function notify({title, endtimeutc, imageurl}:Episode){
+    log('notify', title, parseDate(endtimeutc));
     if(notification){
         browser.notifications.clear(notification);
     }
@@ -94,11 +96,11 @@ async function notify({title, endtimeutc, imageurl}:Episode){
 
     setToHappen(() => {
         if(notification){
-            console.log(`${notification} cleared`);
+            log(`${notification} cleared`);
             browser.notifications.clear(notification);
         }
-    }, endTime);
-    fetchData();
+    }, endTime, 'clear notification');
+    setTimeout(fetchData, 1000);
 }
 
 browser.notifications.onClicked.addListener((notificationId) => {
@@ -122,31 +124,39 @@ browser.browserAction.onClicked.addListener(async () => {
     }
 });
 
-browser.idle.onStateChanged.addListener((state) => {
-    console.log('idle: ' + state);
-    if(state === 'active'){
-        fetchData();
-    }
-});
+//browser.idle.onStateChanged.addListener((state) => {
+//    log('idle.onStateChanged', state);
+//    if(state === 'active'){
+//        fetchData();
+//    }
+//});
 
 
 function startEpisode(){
-    notify(nextEpisodes[0]);
+    if(nextEpisodes[0]){
+        notify(nextEpisodes[0]);
+    } else {
+        log('Unable to start episode')
+    }
 }
 
 async function fetchData(){
     endFetchInterval();
+    clearTimeout(notificationTimeout);
     nextEpisodes = nextEpisodes.filter(filterPrevEpisodes);
 
     if(nextEpisodes.length === 0){
         nextEpisodes = await getNextEpisodes();
     }
 
-    console.log(`${new Date()} - Fetch Data`, nextEpisodes, fetchInterval);
+    log('Fetch Data', nextEpisodes.map(({title, starttimeutc}: Episode) => ({
+        title,
+        startTime: parseDate(starttimeutc)
+    })));
 
     if(nextEpisodes.length > 0){
         const starts = parseDate(nextEpisodes[0].starttimeutc);
-        setToHappen(startEpisode, starts);
+        notificationTimeout = setToHappen(startEpisode, starts, 'startEpisode');
     } else {
         startFetchInterval(25);
     }

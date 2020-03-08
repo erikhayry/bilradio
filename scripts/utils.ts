@@ -1,10 +1,14 @@
+function log(message: string, ...args: any[]){
+    console.info(`${new Date().toLocaleString()} - ${message}`, ...args);
+}
+
 function isInFuture(date:Date){
     return date.getTime() - (new Date()).getTime() >= 0;
 }
 
-function setToHappen(fn: any, date:Date){
+function setToHappen(fn: any, date:Date, reason = ''){
     const timeUntil = date.getTime() - (new Date()).getTime();
-    console.log(`${new Date()} - Set to happen: `, timeUntil, date);
+    log(`Set to happen`, timeUntil, date.toLocaleString(), reason);
     return setTimeout(fn, timeUntil);
 }
 
@@ -45,6 +49,7 @@ function imageUrlToBase64(url: string):Promise<string>{
 }
 
 export {
+    log,
     isInFuture,
     setToHappen,
     getSearch,
