@@ -1,5 +1,5 @@
 function log(message: string, ...args: any[]){
-    console.info(`${new Date().toLocaleString()} - ${message}`, ...args);
+    console.info(`${toLocaleTimeString(new Date())} - ${message}`, ...args);
 }
 
 function isInFuture(date:Date){
@@ -8,7 +8,7 @@ function isInFuture(date:Date){
 
 function setToHappen(fn: any, date:Date, reason = ''){
     const timeUntil = date.getTime() - (new Date()).getTime();
-    log(`Set to happen`, timeUntil, date.toLocaleString(), reason);
+    log(`Set to happen`, timeUntil, toLocaleTimeString(date), reason);
     return setTimeout(fn, timeUntil);
 }
 
@@ -29,11 +29,21 @@ function getSearch(){
 }
 
 function parseDate(dateString: string): Date{
-    return new Date(Number.parseInt(dateString
-        .replace('/Date(', '')
-        .replace(')/', '')
+    return new Date(
+        Number.parseInt(dateString
+            .replace('/Date(', '')
+            .replace(')/', '')
     ))
 }
+
+function toLocaleTimeString(date: Date):string{
+    return date.toLocaleTimeString('se-SV', {hour: '2-digit', minute:'2-digit'});
+}
+
+function parseDateToString(date: Date): string {
+    return toLocaleTimeString(date)
+}
+
 function base64ToBrowser(buffer: Buffer):string {
     const base64 =  window.btoa([].slice.call(new Uint8Array(buffer)).map((bin: number) => {
         return String.fromCharCode(bin)
@@ -54,5 +64,6 @@ export {
     setToHappen,
     getSearch,
     parseDate,
+    parseDateToString,
     imageUrlToBase64
 }
