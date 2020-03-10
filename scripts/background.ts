@@ -3,8 +3,6 @@ import {imageUrlToBase64, isInFuture, parseDate, setToHappen, log, parseDateToSt
 import {Episode, Scheduled_Episodes, ServerEpisode, AppWindow, State} from "../typings/index";
 declare let window: AppWindow;
 
-console.log('With idle');
-
 enum CHANNEL {
     P1 = 132
 }
@@ -20,7 +18,7 @@ let state: State = {
     nextEpisodes: [] as Episode[],
     fetchInterval: undefined,
     notificationTimeout: undefined,
-    notification: 'notification'
+    notification: undefined
 };
 
 window.state = state;
@@ -32,8 +30,11 @@ function filterPrevEpisodes({startTime}:Episode): boolean {
 function startFetchInterval(minutes: number){
     endFetchInterval();
     const time = minutes * MINUTE;
-    state.fetchInterval = setInterval(fetchData, time);
-    log(`New fetch interval ${state.fetchInterval} started. Refetch in ${minutes} minutes.`)
+    state.fetchInterval = setInterval(() => {
+        console.log(`Fetch interval done after ${minutes} minute(s)`)
+        fetchData()
+    }, time);
+    log(`New fetch interval ${state.fetchInterval} started. Refetch in ${minutes} minute(s).`)
 }
 
 function endFetchInterval(){
@@ -73,7 +74,7 @@ async function notify({title, endTime, startTime, imageUrl}:Episode){
     }
 
     if(isInFuture(endTime)){
-        browser.notifications.create(state.notification, {
+        state.notification = await browser.notifications.create(`notification-${startTime}-${endTime}`, {
             type: 'basic',
             title: `Nyhetssändning | ${startTimeString} - ${endTimeString}`,
             iconUrl: imageUrl ? await imageUrlToBase64(imageUrl) : browser.runtime.getURL("icons/on.png"),
@@ -149,7 +150,6 @@ async function fetchData(){
         startFetchInterval(25);
     }
 }
-
 
 /* INIT */
 if(state.isOn){

@@ -2,7 +2,7 @@
 	"manifest_version": 2,
 	"name": "Nyhetspaus",
 	"version": "0.0.17",
-	"description": "Tag en paus och lyssna på dagens Eko",
+	"description": "Tag en paus och lyssna på Dagens Eko från Sveriges Radio",
 	"icons": {
 		"48": "icons/on.png",
 		"96": "icons/on@2x.png"
@@ -20,7 +20,6 @@
 	"permissions": [
 		"notifications",
 		"idle",
-		"<all_urls>",
 		"*://api.sr.se/*"
 	]
 }

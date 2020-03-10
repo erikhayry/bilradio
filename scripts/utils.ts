@@ -6,9 +6,9 @@ function isInFuture(date:Date){
     return date.getTime() - (new Date()).getTime() >= 0;
 }
 
-function setToHappen(fn: any, date:Date, reason = ''){
+function setToHappen(fn: any, date:Date, action = ''){
     const timeUntil = date.getTime() - (new Date()).getTime();
-    log(`Set to happen`, timeUntil, toLocaleTimeString(date), reason);
+    log(`Set to happen`, timeUntil, toLocaleTimeString(date), action);
     return setTimeout(fn, timeUntil);
 }
 
