@@ -1,3 +1,5 @@
+import {toLocaleTimeString} from "./date";
+
 const ALLOWED_ORIGIN = 'sr.se';
 
 function log(message: string, ...args: any[]){
@@ -10,10 +12,6 @@ function isValidImageUrl(url: string){
     }
 
     return false;
-}
-
-function isInFuture(date:Date){
-    return date.getTime() - (new Date()).getTime() >= 0;
 }
 
 function setToHappen(fn: any, date:Date, action = ''){
@@ -38,38 +36,6 @@ function getSearch(){
     return obj;
 }
 
-function parseDate(dateString: string): Date{
-    return new Date(
-        Number.parseInt(dateString
-            .replace('/Date(', '')
-            .replace(')/', '')
-    ))
-}
-
-function getDays(numberOfDays: number): string[]{
-    const ret: string[] = [];
-    const today = new Date();
-
-    for (let i = 0; i < numberOfDays; i++){
-        const nextDay = new Date(today);
-        nextDay.setDate(nextDay.getDate() + i);
-        ret.push(`${nextDay.getFullYear()}-${('0' + (nextDay.getMonth() + 1)).slice(-2)}-${('0' + nextDay.getDate()).slice(-2)}`)
-    }
-
-    return ret
-}
-
-function toLocaleTimeString(date: Date):string{
-    return date.toLocaleTimeString('se-SV', {
-        hour: '2-digit',
-        minute:'2-digit'
-    });
-}
-
-function parseDateToString(date: Date): string {
-    return toLocaleTimeString(date)
-}
-
 function base64ToBrowser(buffer: Buffer):string {
     const base64 =  window.btoa([].slice.call(new Uint8Array(buffer)).map((bin: number) => {
         return String.fromCharCode(bin)
@@ -86,12 +52,8 @@ function imageUrlToBase64(url: string):Promise<string>{
 
 export {
     log,
-    getDays,
     isValidImageUrl,
-    isInFuture,
     setToHappen,
     getSearch,
-    parseDate,
-    parseDateToString,
     imageUrlToBase64
 }

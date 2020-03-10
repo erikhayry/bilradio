@@ -1,4 +1,5 @@
-import {getSearch, isInFuture, setToHappen} from "./utils";
+import {getSearch, setToHappen} from "./utils/index";
+import {isInFuture} from "./utils/date";
 
 ((() => {
     const { src, title, endDate } =  getSearch();

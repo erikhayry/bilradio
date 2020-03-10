@@ -1,30 +1,22 @@
 import {browser} from "webextension-polyfill-ts";
-import {imageUrlToBase64, isInFuture, parseDate, setToHappen, log, parseDateToString, isValidImageUrl, getDays} from './utils';
-import {Episode, Scheduled_Episodes, ServerEpisode, AppWindow, State} from "../typings/index";
+import {imageUrlToBase64, setToHappen, log, isValidImageUrl} from './utils/index';
+import {Episode, AppWindow, State} from "../typings/index";
+import {filterPrevEpisodes, getNextEpisodes, STREAM_URL} from "./utils/data";
+import {isInFuture, parseDateToString} from "./utils/date";
 declare let window: AppWindow;
 
-enum CHANNEL {
-    P1 = 132
-}
-enum PROGRAM {
-    EKOT = 4540
-}
-
-const STREAM_URL = `http://sverigesradio.se/topsy/direkt/srapi/${CHANNEL.P1}.mp3`;
 const MINUTE = 1000 * 60;
 const state: State = {
     isOn: true,
     nextEpisodes: [] as Episode[],
     fetchInterval: undefined,
     notificationTimeout: undefined,
-    notification: undefined
+    broadcastNotification: undefined,
+    onOffNotification: undefined
 };
 
 window.state = state;
 
-function filterPrevEpisodes({startTime}:Episode): boolean {
-    return isInFuture(startTime);
-}
 
 function startFetchInterval(minutes: number){
     endFetchInterval();
@@ -44,47 +36,28 @@ function endFetchInterval(){
     }
 }
 
-async function getNextEpisodes(date: string): Promise<Episode[]>{
-    return fetch(`http://api.sr.se/api/v2/scheduledepisodes?channelid=${CHANNEL.P1}&date=${date}&format=json&pagination=false`)
-        .then((response) => {
-            return response.json();
-        })
-        .then(({schedule = []}: Scheduled_Episodes) => {
-            return schedule
-                .filter(({program}: ServerEpisode) => program.id === PROGRAM.EKOT)
-                .map(({title, starttimeutc, endtimeutc, program, imageurl}) => ({
-                    title,
-                    startTime: parseDate(starttimeutc),
-                    endTime: parseDate(endtimeutc),
-                    program,
-                    imageUrl: imageurl
-                }))
-                .filter(filterPrevEpisodes)
-        });
-}
-
 async function notify({title, endTime, startTime, imageUrl}:Episode){
     const startTimeString = parseDateToString(startTime);
     const endTimeString = parseDateToString(endTime);
     log('Notify', title, startTimeString, endTimeString);
 
-    if(state.notification){
-        browser.notifications.clear(state.notification);
+    if(state.broadcastNotification){
+        browser.notifications.clear(state.broadcastNotification);
     }
 
     if(isInFuture(endTime)){
-        state.notification = await browser.notifications.create(`notification-${startTime}-${endTime}`, {
+        state.broadcastNotification = await browser.notifications.create(`notification-${startTime}-${endTime}`, {
             type: 'basic',
             title: `Nyhetssändning | ${startTimeString} - ${endTimeString}`,
             iconUrl: isValidImageUrl(imageUrl) ? await imageUrlToBase64(imageUrl) : browser.runtime.getURL("icons/on.png"),
-            message: 'Tryck här för att börja lyssna',
-            contextMessage: `${title}`
+            contextMessage: `${title}`,
+            message: 'Tryck här för att börja lyssna'
         });
 
         setToHappen(() => {
-            if(state.notification){
-                log(`${state.notification} cleared`);
-                browser.notifications.clear(state.notification);
+            if(state.broadcastNotification){
+                log(`${state.broadcastNotification} cleared`);
+                browser.notifications.clear(state.broadcastNotification);
             }
         }, endTime, 'Clear notification');
         setTimeout(fetchData, 1000);
@@ -106,8 +79,20 @@ browser.browserAction.onClicked.addListener(async () => {
     browser.browserAction.setIcon({
         path:  browser.runtime.getURL(`icons/${state.isOn ? 'on' : 'off'}.png`)
     });
+
+    if(state.onOffNotification){
+        browser.notifications.clear(state.onOffNotification);
+    }
+
+    state.onOffNotification = await browser.notifications.create(`on-off-notification`, {
+        type: 'basic',
+        title: `Nyhetspaus`,
+        iconUrl: browser.runtime.getURL("icons/on.png"),
+        message: `Nyhetspaus är ${state.isOn ? 'på' : 'av'}`
+    });
+
     if(state.isOn){
-        fetchData();
+        await fetchData();
     }
 });
 
@@ -133,9 +118,7 @@ async function fetchData(){
     state.nextEpisodes = state.nextEpisodes.filter(filterPrevEpisodes);
 
     if(state.nextEpisodes.length === 0){
-        const responses = await Promise.all(getDays(2).map(getNextEpisodes));
-        // @ts-ignore
-        state.nextEpisodes = responses.flat();
+        state.nextEpisodes = await getNextEpisodes();
     }
 
     log('Fetch Data', state.nextEpisodes.map(({title, startTime, endTime, imageUrl}: Episode) => ({

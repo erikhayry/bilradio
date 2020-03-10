@@ -46,7 +46,8 @@ export interface State {
     nextEpisodes: Episode[];
     fetchInterval?:  NodeJS.Timeout;
     notificationTimeout?:  NodeJS.Timeout;
-    notification: string;
+    broadcastNotification: string;
+    onOffNotification: string;
 }
 
 export interface AppWindow extends Window{
