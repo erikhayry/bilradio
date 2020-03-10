@@ -3,7 +3,10 @@ import {imageUrlToBase64, setToHappen, log, isValidImageUrl} from './utils/index
 import {Episode, AppWindow, State} from "../typings/index";
 import {filterPrevEpisodes, getNextEpisodes, STREAM_URL} from "./utils/data";
 import {isInFuture, parseDateToString} from "./utils/date";
+import {initSentry} from "./utils/sentry";
+
 declare let window: AppWindow;
+initSentry();
 
 const MINUTE = 1000 * 60;
 const state: State = {
@@ -16,7 +19,6 @@ const state: State = {
 };
 
 window.state = state;
-
 
 function startFetchInterval(minutes: number){
     endFetchInterval();
