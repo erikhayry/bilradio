@@ -1,5 +1,5 @@
 import {browser} from "webextension-polyfill-ts";
-import {imageUrlToBase64, isInFuture, parseDate, setToHappen, log, parseDateToString} from './utils';
+import {imageUrlToBase64, isInFuture, parseDate, setToHappen, log, parseDateToString, isValidImageUrl, getDays} from './utils';
 import {Episode, Scheduled_Episodes, ServerEpisode, AppWindow, State} from "../typings/index";
 declare let window: AppWindow;
 
@@ -12,8 +12,7 @@ enum PROGRAM {
 
 const STREAM_URL = `http://sverigesradio.se/topsy/direkt/srapi/${CHANNEL.P1}.mp3`;
 const MINUTE = 1000 * 60;
-
-let state: State = {
+const state: State = {
     isOn: true,
     nextEpisodes: [] as Episode[],
     fetchInterval: undefined,
@@ -45,8 +44,8 @@ function endFetchInterval(){
     }
 }
 
-async function getNextEpisodes(): Promise<Episode[]>{
-    return fetch(`http://api.sr.se/api/v2/scheduledepisodes?channelid=${CHANNEL.P1}&format=json&pagination=false`)
+async function getNextEpisodes(date: string): Promise<Episode[]>{
+    return fetch(`http://api.sr.se/api/v2/scheduledepisodes?channelid=${CHANNEL.P1}&date=${date}&format=json&pagination=false`)
         .then((response) => {
             return response.json();
         })
@@ -77,7 +76,7 @@ async function notify({title, endTime, startTime, imageUrl}:Episode){
         state.notification = await browser.notifications.create(`notification-${startTime}-${endTime}`, {
             type: 'basic',
             title: `Nyhetssändning | ${startTimeString} - ${endTimeString}`,
-            iconUrl: imageUrl ? await imageUrlToBase64(imageUrl) : browser.runtime.getURL("icons/on.png"),
+            iconUrl: isValidImageUrl(imageUrl) ? await imageUrlToBase64(imageUrl) : browser.runtime.getURL("icons/on.png"),
             message: 'Tryck här för att börja lyssna',
             contextMessage: `${title}`
         });
@@ -134,14 +133,16 @@ async function fetchData(){
     state.nextEpisodes = state.nextEpisodes.filter(filterPrevEpisodes);
 
     if(state.nextEpisodes.length === 0){
-        state.nextEpisodes = await getNextEpisodes();
+        const responses = await Promise.all(getDays(2).map(getNextEpisodes));
+        // @ts-ignore
+        state.nextEpisodes = responses.flat();
     }
 
     log('Fetch Data', state.nextEpisodes.map(({title, startTime, endTime, imageUrl}: Episode) => ({
         title,
         startTime: parseDateToString(startTime),
         endTime: parseDateToString(endTime),
-        hasImageUrl: Boolean(imageUrl)
+        isValidImageUrl: isValidImageUrl(imageUrl)
     })));
 
     if(state.nextEpisodes.length > 0){

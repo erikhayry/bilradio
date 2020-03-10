@@ -20,6 +20,6 @@
 	"permissions": [
 		"notifications",
 		"idle",
-		"*://api.sr.se/*"
+		"https://*.sr.se/*"
 	]
 }
