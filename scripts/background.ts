@@ -24,7 +24,7 @@ function startFetchInterval(minutes: number){
     endFetchInterval();
     const time = minutes * MINUTE;
     state.fetchInterval = setInterval(() => {
-        console.log(`Fetch interval done after ${minutes} minute(s)`)
+        log(`Fetch interval done after ${minutes} minute(s)`);
         fetchData()
     }, time);
     log(`New fetch interval ${state.fetchInterval} started. Refetch in ${minutes} minute(s).`)
