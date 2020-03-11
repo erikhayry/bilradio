@@ -48,7 +48,7 @@ async function notify({title, endTime, startTime, imageUrl}:Episode){
     }
 
     if(isInFuture(endTime)){
-        state.broadcastNotification = await browser.notifications.create(`notification-${startTime}-${endTime}`, {
+        state.broadcastNotification = await browser.notifications.create(`notification-${startTime.getTime()}-${endTime.getTime()}`, {
             type: 'basic',
             title: `Nyhetssändning | ${startTimeString} - ${endTimeString}`,
             iconUrl: isValidImageUrl(imageUrl) ? await imageUrlToBase64(imageUrl) : browser.runtime.getURL("icons/on.png"),
