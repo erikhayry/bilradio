@@ -9,6 +9,7 @@ declare let window: AppWindow;
 initSentry();
 
 const MINUTE = 1000 * 60;
+const BROADCAST_NOTIFICATION_ID = 'BROADCAST_NOTIFICATION';
 const state: State = {
     isOn: true,
     nextEpisodes: [] as Episode[],
@@ -48,7 +49,7 @@ async function notify({title, endTime, startTime, imageUrl}:Episode){
     }
 
     if(isInFuture(endTime)){
-        state.broadcastNotification = await browser.notifications.create(`notification-${startTime.getTime()}-${endTime.getTime()}`, {
+        state.broadcastNotification = await browser.notifications.create(`${BROADCAST_NOTIFICATION_ID}:${title}:${startTime.getTime()}:${endTime.getTime()}`, {
             type: 'basic',
             title: `Nyhetssändning | ${startTimeString} - ${endTimeString}`,
             iconUrl: isValidImageUrl(imageUrl) ? await imageUrlToBase64(imageUrl) : browser.runtime.getURL("icons/on.png"),
@@ -68,12 +69,15 @@ async function notify({title, endTime, startTime, imageUrl}:Episode){
     }
 }
 
-browser.notifications.onClicked.addListener(() => {
-    const nextEpisode = state.nextEpisodes[0];
-    browser.tabs.create({
-        url: `player.html?title=${nextEpisode.title}&src=${STREAM_URL}&endDate=${nextEpisode.endTime.getTime() + (2 * MINUTE)}`,
-        pinned: true
-    });
+browser.notifications.onClicked.addListener((notificationId) => {
+    if(notificationId.indexOf(BROADCAST_NOTIFICATION_ID) === 0){
+        const [id, title, startTime, endTime] = notificationId.split(':');
+        log('Create tab', id, title, startTime, endTime);
+        browser.tabs.create({
+            url: `player.html?title=${title}&src=${STREAM_URL}&endDate=${Number.parseInt(endTime) + (2 * MINUTE)}`,
+            pinned: true
+        });
+    }
 });
 
 browser.browserAction.onClicked.addListener(async () => {
