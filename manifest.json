@@ -1,7 +1,7 @@
 {
 	"manifest_version": 2,
 	"name": "Nyhetspaus",
-	"version": "0.0.18",
+	"version": "0.0.21",
 	"description": "Tag en paus och lyssna på Dagens Eko från Sveriges Radio",
 	"icons": {
 		"48": "icons/on.png",
